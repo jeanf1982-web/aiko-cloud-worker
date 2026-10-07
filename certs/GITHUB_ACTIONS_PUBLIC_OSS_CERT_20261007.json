@@ -1,0 +1,19 @@
+{
+  "schema": "AIKO_GITHUB_ACTIONS_PUBLIC_OSS_CERT_V1",
+  "verified_at": "2026-10-07",
+  "overall_pass": true,
+  "provider": "github_actions_public_oss",
+  "repository": "jeanf1982-web/aiko-cloud-worker",
+  "repository_public": true,
+  "workflow": ".github/workflows/zero-cost-provider-cert.yml",
+  "workflow_name": "Zero Cost Provider Cert",
+  "run_id": 37624725300,
+  "run_status": "completed",
+  "run_conclusion": "success",
+  "permissions": ["contents:read"],
+  "scope": "PUBLIC_OSS_CI_ONLY",
+  "cost_eur": 0,
+  "paid_fallback": false,
+  "general_compute_forbidden": true,
+  "evidence": "GitHub workflow run 37624725300 completed successfully on the public aiko-cloud-worker repository."
+}
