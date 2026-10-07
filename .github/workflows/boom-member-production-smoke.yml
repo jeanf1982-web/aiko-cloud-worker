@@ -14,52 +14,44 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Diagnose public DNS and deployment
+      - name: Diagnose legacy custom-domain DNS
         shell: bash
         run: |
           set -u
-          echo '=== DNS ==='
-          getent ahosts members.espartaaps.it || true
-          echo 'A:'
-          dig +short members.espartaaps.it A || true
-          echo 'AAAA:'
-          dig +short members.espartaaps.it AAAA || true
-          echo 'CNAME:'
-          dig +short members.espartaaps.it CNAME || true
-          echo 'Parent NS:'
-          dig +short espartaaps.it NS || true
-          echo '=== Exact Vercel deployment ==='
-          deploy='https://organization-it-31ib3ryd7-jeanf1982-5350.vercel.app'
+          echo 'legacy=members.espartaaps.it'
+          echo 'A:'; dig +short members.espartaaps.it A || true
+          echo 'AAAA:'; dig +short members.espartaaps.it AAAA || true
+          echo 'CNAME:'; dig +short members.espartaaps.it CNAME || true
+          echo 'Parent NS:'; dig +short espartaaps.it NS || true
+
+      - name: Probe stable zero-cost Member routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidates=('https://organization-it.vercel.app' 'https://organization-it-31ib3ryd7-jeanf1982-5350.vercel.app')
+          selected=''
+          for base in "${candidates[@]}"; do
+            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/probe -w '%{http_code}' "$base/" || true)
+            bytes=$(wc -c < /tmp/probe 2>/dev/null || echo 0)
+            echo "candidate=$base root_http=$code bytes=$bytes"
+            if [ "$code" = '200' ] && [ "$bytes" -gt 500 ]; then selected="$base"; break; fi
+          done
+          test -n "$selected"
+          echo "SELECTED=$selected"
           for p in / /join /recover; do
-            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/deploy-body -w '%{http_code}' "$deploy$p" || true)
-            bytes=$(wc -c < /tmp/deploy-body 2>/dev/null || echo 0)
-            echo "$p HTTP=$code BYTES=$bytes"
+            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/body -w '%{http_code}' "$selected$p")
+            final=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /dev/null -w '%{url_effective}' "$selected$p")
+            bytes=$(wc -c < /tmp/body)
+            echo "$p HTTP=$code BYTES=$bytes FINAL=$final"
+            test "$code" = '200'
+            test "$bytes" -gt 500
           done
 
-      - name: Probe public Member routes
+      - name: Verify current deployment identity and HTML
         shell: bash
         run: |
           set -euo pipefail
-          base='https://members.espartaaps.it'
-          probe() {
-            path="$1"
-            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/body -w '%{http_code}' "$base$path")
-            final=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /dev/null -w '%{url_effective}' "$base$path")
-            echo "$path HTTP=$code FINAL=$final"
-            test "$code" = '200'
-            bytes=$(wc -c < /tmp/body)
-            echo "$path BYTES=$bytes"
-            test "$bytes" -gt 500
-          }
-          probe '/'
-          probe '/join'
-          probe '/recover'
-
-      - name: Verify frontend identity headers
-        shell: bash
-        run: |
-          set -euo pipefail
-          base='https://members.espartaaps.it'
+          base='https://organization-it-31ib3ryd7-jeanf1982-5350.vercel.app'
           headers=$(mktemp)
           curl -L --max-time 25 --connect-timeout 10 -sS -D "$headers" -o /tmp/member-root "$base/"
           echo 'Relevant response headers:'
