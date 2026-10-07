@@ -1,0 +1,46 @@
+name: bOOm Member production smoke
+
+on:
+  push:
+    paths:
+      - '.github/workflows/boom-member-production-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe public Member routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://members.espartaaps.it'
+          probe() {
+            path="$1"
+            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/body -w '%{http_code}' "$base$path")
+            final=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /dev/null -w '%{url_effective}' "$base$path")
+            echo "$path HTTP=$code FINAL=$final"
+            test "$code" = '200'
+            bytes=$(wc -c < /tmp/body)
+            echo "$path BYTES=$bytes"
+            test "$bytes" -gt 500
+          }
+          probe '/'
+          probe '/join'
+          probe '/recover'
+
+      - name: Verify frontend identity headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://members.espartaaps.it'
+          headers=$(mktemp)
+          curl -L --max-time 25 --connect-timeout 10 -sS -D "$headers" -o /tmp/member-root "$base/"
+          echo 'Relevant response headers:'
+          grep -iE '^(x-frontend-version|x-frontend-sha|content-type|location):' "$headers" || true
+          grep -qi 'text/html' "$headers"
+          test "$(wc -c < /tmp/member-root)" -gt 500
