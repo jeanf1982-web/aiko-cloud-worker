@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import argparse, base64, gzip, hashlib, json, os, subprocess, sys, tempfile, time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -72,16 +72,16 @@ def main():
     if a.job_type == "sha256":
         result = {"sha256": calc, "bytes": len(payload)}
     elif a.job_type == "json_canonicalize":
-        obj = json.loads(payload.decode("utf-8"))
+        obj = json.loads(payload.decode("utf-8-sig"))
         canon = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
         result = {"canonical_b64": base64.b64encode(canon).decode(), "canonical_sha256": hashlib.sha256(canon).hexdigest()}
     elif a.job_type == "forensics_merkle":
-        obj = json.loads(payload.decode("utf-8")); items = obj.get("items", [])
+        obj = json.loads(payload.decode("utf-8-sig")); items = obj.get("items", [])
         if not isinstance(items, list) or len(items) > 10000:
             raise SystemExit("ITEMS_DENIED")
         result = {"count": len(items), "merkle_root": merkle_root(items)}
     elif a.job_type == "hash_parallel":
-        obj = json.loads(payload.decode("utf-8")); lanes = int(obj.get("lanes", 4)); rounds = int(obj.get("rounds", 200000)); seed = str(obj.get("seed", "AIKO"))
+        obj = json.loads(payload.decode("utf-8-sig")); lanes = int(obj.get("lanes", 4)); rounds = int(obj.get("rounds", 200000)); seed = str(obj.get("seed", "AIKO"))
         if lanes < 1 or lanes > 4 or rounds < 1 or rounds > 2000000:
             raise SystemExit("COMPUTE_LIMIT_DENIED")
         with ProcessPoolExecutor(max_workers=lanes) as ex:
@@ -109,3 +109,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
