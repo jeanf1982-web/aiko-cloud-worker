@@ -24,37 +24,60 @@ jobs:
           echo 'CNAME:'; dig +short members.espartaaps.it CNAME || true
           echo 'Parent NS:'; dig +short espartaaps.it NS || true
 
-      - name: Probe stable zero-cost Member routes
+      - name: Require truly public Member routes
         shell: bash
         run: |
           set -euo pipefail
           candidates=('https://organization-it.vercel.app' 'https://organization-it-31ib3ryd7-jeanf1982-5350.vercel.app')
           selected=''
           for base in "${candidates[@]}"; do
-            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/probe -w '%{http_code}' "$base/" || true)
-            bytes=$(wc -c < /tmp/probe 2>/dev/null || echo 0)
-            echo "candidate=$base root_http=$code bytes=$bytes"
-            if [ "$code" = '200' ] && [ "$bytes" -gt 500 ]; then selected="$base"; break; fi
+            body=$(mktemp)
+            headers=$(mktemp)
+            meta=$(curl -L --max-time 25 --connect-timeout 10 -sS -D "$headers" -o "$body" -w '%{http_code}|%{url_effective}' "$base/" || true)
+            code=${meta%%|*}
+            final=${meta#*|}
+            bytes=$(wc -c < "$body" 2>/dev/null || echo 0)
+            initial_location=$(grep -i '^location:' "$headers" | head -n1 | tr -d '\r' || true)
+            echo "candidate=$base http=$code bytes=$bytes final=$final initial_location=$initial_location"
+            case "$final" in
+              "$base"|"$base/") ;;
+              *) echo "REJECT: final URL left application host"; continue ;;
+            esac
+            if [ "$code" = '200' ] && [ "$bytes" -gt 500 ] && grep -qi '^x-frontend-version:' "$headers"; then
+              selected="$base"
+              break
+            fi
           done
           test -n "$selected"
           echo "SELECTED=$selected"
+
+          selected_host=${selected#https://}
+          selected_host=${selected_host%%/*}
           for p in / /join /recover; do
-            code=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/body -w '%{http_code}' "$selected$p")
-            final=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /dev/null -w '%{url_effective}' "$selected$p")
-            bytes=$(wc -c < /tmp/body)
-            echo "$p HTTP=$code BYTES=$bytes FINAL=$final"
+            body=$(mktemp)
+            headers=$(mktemp)
+            meta=$(curl -L --max-time 25 --connect-timeout 10 -sS -D "$headers" -o "$body" -w '%{http_code}|%{url_effective}' "$selected$p")
+            code=${meta%%|*}
+            final=${meta#*|}
+            final_host=${final#*://}
+            final_host=${final_host%%/*}
+            bytes=$(wc -c < "$body")
+            version=$(grep -i '^x-frontend-version:' "$headers" | tail -n1 | tr -d '\r' || true)
+            sha=$(grep -i '^x-frontend-sha:' "$headers" | tail -n1 | tr -d '\r' || true)
+            echo "$p HTTP=$code BYTES=$bytes FINAL=$final VERSION=$version SHA=$sha"
             test "$code" = '200'
             test "$bytes" -gt 500
+            test "$final_host" = "$selected_host"
+            test -n "$version"
           done
 
-      - name: Verify current deployment identity and HTML
+      - name: Reject Vercel authentication interstitial
         shell: bash
         run: |
           set -euo pipefail
           base='https://organization-it-31ib3ryd7-jeanf1982-5350.vercel.app'
-          headers=$(mktemp)
-          curl -L --max-time 25 --connect-timeout 10 -sS -D "$headers" -o /tmp/member-root "$base/"
-          echo 'Relevant response headers:'
-          grep -iE '^(x-frontend-version|x-frontend-sha|content-type|location):' "$headers" || true
-          grep -qi 'text/html' "$headers"
-          test "$(wc -c < /tmp/member-root)" -gt 500
+          final=$(curl -L --max-time 25 --connect-timeout 10 -sS -o /tmp/member-root -w '%{url_effective}' "$base/")
+          echo "FINAL=$final"
+          case "$final" in
+            https://vercel.com/*) echo 'FAIL: deployment is behind Vercel Authentication'; exit 1 ;;
+          esac
