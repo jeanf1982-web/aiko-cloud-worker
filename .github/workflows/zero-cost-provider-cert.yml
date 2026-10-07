@@ -1,0 +1,22 @@
+name: Zero Cost Provider Cert
+
+on:
+  push:
+    paths:
+      - '.github/workflows/zero-cost-provider-cert.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Zero-cost certification probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'AIKO_GITHUB_ACTIONS_ZERO_COST_PROBE=PASS'
+          echo 'cost_eur=0'
