@@ -1,0 +1,8 @@
+# Never publish local credentials or receipts
+keys/aiko_cloud_worker_private.pem
+client/nonce_registry.json
+results/
+__pycache__/
+*.pyc
+*.log
+.env

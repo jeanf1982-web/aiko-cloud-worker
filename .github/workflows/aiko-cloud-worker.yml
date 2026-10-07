@@ -1,0 +1,65 @@
+name: AIKO Cloud Worker
+run-name: AIKO Cloud Worker ${{ inputs.nonce }} ${{ inputs.job_type }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: Allowlisted capability
+        required: true
+        type: string
+      payload_b64:
+        description: Base64 payload, non-sensitive only
+        required: true
+        type: string
+      nonce:
+        description: Unique dispatcher nonce
+        required: true
+        type: string
+      expires_at:
+        description: Unix expiry timestamp
+        required: true
+        type: string
+      payload_sha256:
+        description: SHA256 of decoded payload
+        required: true
+        type: string
+      signature_b64:
+        description: Ed25519 signature over canonical manifest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout immutable worker code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Execute allowlisted signed job
+        shell: bash
+        run: |
+          set -euo pipefail
+          python worker.py \
+            --job-type '${{ inputs.job_type }}' \
+            --payload-b64 '${{ inputs.payload_b64 }}' \
+            --nonce '${{ inputs.nonce }}' \
+            --expires-at '${{ inputs.expires_at }}' \
+            --payload-sha256 '${{ inputs.payload_sha256 }}' \
+            --signature-b64 '${{ inputs.signature_b64 }}'
+      - name: Upload immutable result artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-result-${{ inputs.nonce }}
+          path: |
+            result.json
+            attestation.json
+          if-no-files-found: error
+          retention-days: 1
