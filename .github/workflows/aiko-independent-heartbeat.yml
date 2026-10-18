@@ -57,4 +57,4 @@ jobs:
           name: aiko-external-heartbeat
           path: artifacts/aiko-external-heartbeat.json
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
