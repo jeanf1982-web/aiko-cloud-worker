@@ -1,0 +1,60 @@
+name: AIKO Independent External Heartbeat
+
+# Read-only public-data proof that GitHub cloud jobs run without ACER.
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aiko-independent-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  external-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Run deterministic public-only self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python - <<'PY'
+          import datetime
+          import hashlib
+          import json
+          from pathlib import Path
+
+          assert hashlib.sha256(b'abc').hexdigest() == (
+              'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+          )
+          payload = {
+              'schema': 'AIKO_EXTERNAL_HEARTBEAT_V1',
+              'source': 'GITHUB_ACTIONS_RUNNER_OFF_ACER',
+              'time_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'state': 'DETERMINISTIC_SELFTEST_PASS',
+              'compute_independent_of_acer': True,
+              'capabilities': ['sha256_selftest', 'json_serialization'],
+              'remote_private_data_access': False,
+              'local_device_access': False,
+              'camera_or_microphone_access': False,
+              'paid_fallback': False,
+              'billing_triggered': False,
+              'limits': 'Within GitHub Actions public-repository standard-runner quota',
+          }
+          path = Path('artifacts/aiko-external-heartbeat.json')
+          path.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          assert json.loads(path.read_text(encoding='utf-8')) == payload
+          print('AIKO_EXTERNAL_HEARTBEAT_SELFTEST_PASS')
+          PY
+      - name: Publish short-lived independent proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-external-heartbeat
+          path: artifacts/aiko-external-heartbeat.json
+          if-no-files-found: error
+          retention-days: 1
