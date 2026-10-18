@@ -1,0 +1,75 @@
+name: AIKO Cloud Evolution Quality Gate
+on:
+  schedule:
+    - cron: '19 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aiko-cloud-evolution-quality-gate
+  cancel-in-progress: false
+jobs:
+  independent-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout cloud-only repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run deterministic cloud quality audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python3 - <<'PY'
+          import ast, hashlib, json, os, pathlib, time
+          root=pathlib.Path(".")
+          omit={".git",".venv","venv","node_modules","__pycache__",".next"}
+          examined=[]; failures=[]
+          for p in root.rglob("*"):
+              if not p.is_file() or any(v in omit for v in p.parts):
+                  continue
+              if p.stat().st_size>500_000:
+                  continue
+              if p.suffix not in {".py",".json"}:
+                  continue
+              if len(examined)>=300:
+                  failures.append({"kind":"LIMIT","reason":"300 files max"});break
+              raw=p.read_bytes()
+              sha=hashlib.sha256(raw).hexdigest()
+              status="PASS";error=""
+              try:
+                  text=raw.decode("utf-8-sig")
+                  if p.suffix==".py":ast.parse(text,filename=str(p))
+                  elif p.suffix==".json":json.loads(text)
+              except (SyntaxError,ValueError,UnicodeError) as ex:
+                  status="FAIL";error=str(ex)[:220]
+                  failures.append({"file":str(p),"kind":"VALIDATION","error":error})
+              examined.append({"file":str(p),"sha256":sha,"validation":status})
+          payload={
+              "schema":"AIKO_CLOUD_EVOLUTION_QUALITY_GATE_V1",
+              "source":"GITHUB_ACTIONS_INDEPENDENT_OF_ACER",
+              "created_at_unix":int(time.time()),
+              "repository":os.environ.get("GITHUB_REPOSITORY"),
+              "commit":os.environ.get("GITHUB_SHA"),
+              "checks":{"sha256":"PASS","python_ast":"PASS" if not any(x["kind"]=="VALIDATION" and x["file"].endswith(".py") for x in failures) else "FAIL","json_parse":"PASS" if not any(x["kind"]=="VALIDATION" and x["file"].endswith(".json") for x in failures) else "FAIL"},
+              "checked_file_count":len(examined),
+              "failures":failures,
+              "files":examined,
+              "quality_gate":"PASS" if not failures else "FAIL",
+              "safety":{"changes_to_acer":False,"deploy":False,"secrets_access":False,"paid_models":False}
+          }
+          out=pathlib.Path("artifacts/aiko-cloud-evolution-quality-gate.json")
+          out.write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+          print(f"AIKO_CLOUD_QUALITY_GATE_{payload['quality_gate']}: {len(examined)} files, {len(failures)} failures")
+          if failures:raise SystemExit(1)
+          PY
+      - name: Upload durable quality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-cloud-evolution-quality-gate
+          path: artifacts/aiko-cloud-evolution-quality-gate.json
+          if-no-files-found: error
+          retention-days: 14
