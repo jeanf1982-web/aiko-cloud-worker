@@ -1,0 +1,21 @@
+name: AIKO Cloud Sandbox Candidate
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '22 */6 * * *'
+permissions:
+  contents: read
+jobs:
+  certify-cloud-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate and validate a public-safe candidate
+        run: python3 aiko_cloud_candidate_sandbox.py
+      - name: Upload certified sandbox artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-certified-cloud-sandbox
+          path: cloud_sandbox_artifacts/
+          retention-days: 7
