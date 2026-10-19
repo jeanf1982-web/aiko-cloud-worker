@@ -2,17 +2,81 @@
   "schema": "AIKO_CLOUD_JOBS_V1",
   "jobs": [
     {
-      "id": "public-planning-canary-001",
+      "id": "case-345d084595ba7f37",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
-      "approved_cloud": true
+      "approved_cloud": true,
+      "category": "PRESERVE_APPLIED_REVIEW"
     },
     {
-      "id": "public-json-check-001",
-      "kind": "json_validation",
-      "payload": "{\"health\":\"ok\",\"reusable\":true}",
+      "id": "case-d721471bc0933d3d",
+      "kind": "chess_options",
       "sensitivity": "PUBLIC",
-      "approved_cloud": true
+      "approved_cloud": true,
+      "category": "PRESERVE_APPLIED_REVIEW"
+    },
+    {
+      "id": "case-1fa29f60b55573fe",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "PRESERVE_APPLIED_REVIEW"
+    },
+    {
+      "id": "case-6a61e62067fd636e",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "PRESERVE_APPLIED_REVIEW"
+    },
+    {
+      "id": "case-82b99151e68ff973",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "ROLLBACK_REPAIR_REVIEW"
+    },
+    {
+      "id": "case-fc01be7cede85287",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "HISTORICAL_REUSE_REVIEW"
+    },
+    {
+      "id": "case-63dcadb58088ff37",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "PRESERVE_APPLIED_REVIEW"
+    },
+    {
+      "id": "case-9775d3e917960ce3",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "PRESERVE_APPLIED_REVIEW"
+    },
+    {
+      "id": "case-e80e664805723cec",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "HISTORICAL_REUSE_REVIEW"
+    },
+    {
+      "id": "case-b882538e566d94a8",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "HISTORICAL_REUSE_REVIEW"
+    },
+    {
+      "id": "case-9225514a414a15e4",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true,
+      "category": "HISTORICAL_REUSE_REVIEW"
     }
   ]
 }
