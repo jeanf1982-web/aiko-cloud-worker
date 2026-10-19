@@ -2,8 +2,7 @@
 import ast,hashlib,json,pathlib,subprocess,sys,datetime
 OUT=pathlib.Path("cloud_sandbox_artifacts")
 OUT.mkdir(exist_ok=True)
-source='''import json
-def validate_json_text(text):
+source='''def validate_json_text(text):
     if not isinstance(text,str) or len(text)>10000:
         return {"valid":False,"reason":"INVALID_INPUT"}
     try:
