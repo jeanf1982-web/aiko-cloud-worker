@@ -1,0 +1,18 @@
+{
+  "schema": "AIKO_CLOUD_JOBS_V1",
+  "jobs": [
+    {
+      "id": "public-planning-canary-001",
+      "kind": "chess_options",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true
+    },
+    {
+      "id": "public-json-check-001",
+      "kind": "json_validation",
+      "payload": "{\"health\":\"ok\",\"reusable\":true}",
+      "sensitivity": "PUBLIC",
+      "approved_cloud": true
+    }
+  ]
+}
