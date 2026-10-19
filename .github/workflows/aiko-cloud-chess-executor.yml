@@ -1,0 +1,30 @@
+name: AIKO Cloud Chess Executor
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '13,43 * * * *'
+permissions:
+  contents: read
+jobs:
+  cloud-chess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and execute safe queued workloads
+        run: python3 aiko_cloud_chess_executor.py
+      - name: Verify cloud result
+        run: |
+          python3 - <<'PY'
+          import json
+          d=json.load(open("aiko_cloud_results.json"))
+          assert d["schema"]=="AIKO_CLOUD_CHESS_RESULTS_V1"
+          assert d["cloud_authorized_to_deploy"] is False
+          assert len(d["jobs"])>=1
+          print("PASS cloud independent work completion")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aiko-cloud-chess-results
+          path: aiko_cloud_results.json
+          retention-days: 7
