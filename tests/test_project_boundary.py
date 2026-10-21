@@ -73,6 +73,7 @@ class BoundaryTests(unittest.TestCase):
         src = (ROOT / ".github/workflows/aiko-cloud-worker.yml").read_text(encoding="utf8")
         execute_step = src.split("      - name: Execute allowlisted signed job", 1)[1].split(
             "      - name: Upload immutable result artifact", 1)[0]
+        execute_step = execute_step.split("      - name: ", 1)[0]
         env, command = execute_step.split("        run: |", 1)
         self.assertIn("AIKO_JOB_TYPE: ${{ inputs.job_type }}", env)
         self.assertNotIn("${{ inputs.", command)
