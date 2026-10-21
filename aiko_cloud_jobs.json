@@ -6,77 +6,111 @@
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "PRESERVE_APPLIED_REVIEW"
+      "category": "PRESERVE_APPLIED_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-d721471bc0933d3d",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "PRESERVE_APPLIED_REVIEW"
+      "category": "PRESERVE_APPLIED_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-1fa29f60b55573fe",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "PRESERVE_APPLIED_REVIEW"
+      "category": "PRESERVE_APPLIED_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-6a61e62067fd636e",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "PRESERVE_APPLIED_REVIEW"
+      "category": "PRESERVE_APPLIED_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-82b99151e68ff973",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "ROLLBACK_REPAIR_REVIEW"
+      "category": "ROLLBACK_REPAIR_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-fc01be7cede85287",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "HISTORICAL_REUSE_REVIEW"
+      "category": "HISTORICAL_REUSE_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-63dcadb58088ff37",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "PRESERVE_APPLIED_REVIEW"
+      "category": "PRESERVE_APPLIED_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-9775d3e917960ce3",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "PRESERVE_APPLIED_REVIEW"
+      "category": "PRESERVE_APPLIED_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-e80e664805723cec",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "HISTORICAL_REUSE_REVIEW"
+      "category": "HISTORICAL_REUSE_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-b882538e566d94a8",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "HISTORICAL_REUSE_REVIEW"
+      "category": "HISTORICAL_REUSE_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     },
     {
       "id": "case-9225514a414a15e4",
       "kind": "chess_options",
       "sensitivity": "PUBLIC",
       "approved_cloud": true,
-      "category": "HISTORICAL_REUSE_REVIEW"
+      "category": "HISTORICAL_REUSE_REVIEW",
+      "owner_project": "AIKO",
+      "data_class": "PUBLIC_SYNTHETIC",
+      "destination": "AIKO_CLOUD_QA"
     }
-  ]
+  ],
+  "owner_project": "AIKO"
 }
