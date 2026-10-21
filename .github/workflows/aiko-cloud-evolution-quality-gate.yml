@@ -84,10 +84,10 @@ jobs:
           assert not (root/"cloud_b8_003/global_public_cert.py").exists()
           scoped=[root/"cloud_b8_003/README.md",
                   root/".github/workflows/aiko-cloud-evolution-quality-gate.yml"]
+          boom_domains=("organization-it"+".vercel.app", "members."+"espartaaps.it")
           for source in scoped:
-              text=source.read_text().lower()
-              assert "organization-it.vercel.app" not in text
-              assert "members.espartaaps.it" not in text
+              body=source.read_text().lower()
+              assert all(host not in body for host in boom_domains), str(source)
           print("AIKO_PROJECT_ISOLATION_PASS")
           PY
       - name: Verify B8-003 300 ephemeral recovery cases
