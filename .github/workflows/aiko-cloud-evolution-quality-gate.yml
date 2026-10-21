@@ -117,12 +117,38 @@ jobs:
         run: |
           set -euo pipefail
           python3 cloud_b8_003/acceptance.py
+      - name: Test 100 real child process crashes and persisted recovery off ACER
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_b8_003/real_process_crash.py
+      - name: Independently check 100-crash recovery receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os
+          with open('artifacts/b8-003-real-process-crash-proof.json',encoding='utf8') as f:
+              receipt=json.load(f)
+          assert receipt['schema']=='AIKO_B8_003_REAL_PROCESS_CRASH_QA_V1'
+          assert receipt['repository']==os.environ['GITHUB_REPOSITORY']
+          assert receipt['commit']==os.environ['GITHUB_SHA']
+          assert receipt['run_id']==os.environ['GITHUB_RUN_ID']
+          assert receipt['actual_child_processes_killed']==100
+          assert all(n==100 for n in receipt['cases'].values())
+          assert receipt['production_deployment'] is False
+          assert receipt['real_growth_source'] is False
+          assert receipt['B8_global_certified'] is False
+          print('AIKO_REAL_CRASH_INDEPENDENT_RECEIPT_PASS')
+          PY
       - name: Upload AIKO-only synthetic recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aiko-b8-003-isolated-recovery-proof
-          path: artifacts/b8-003-cloud-acceptance.json
+          path: |
+            artifacts/b8-003-cloud-acceptance.json
+            artifacts/b8-003-real-process-crash-proof.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload durable quality evidence
