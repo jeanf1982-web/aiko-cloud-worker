@@ -41,5 +41,14 @@
   "claims": {
     "real_growth_release_certified": false,
     "B8_8_of_8": false
+  },
+  "project_identity": "AIKO",
+  "project_separation": {
+    "boom_data_access": false,
+    "boom_database_operations": false,
+    "boom_web_smoke": false,
+    "boom_deployment": false,
+    "shared_credentials": false,
+    "shared_receipts": false
   }
 }
