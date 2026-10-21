@@ -1,9 +1,14 @@
 name: AIKO Cloud Evolution Quality Gate
 on:
   push:
-    branches: [aiko-cross-sector-cert-20261021, aiko-isolation-hardening-20261021, main]
+    branches: [aiko-cloud-boundary-hardening-20261021, main]
     paths:
       - 'cloud_b8_003/**'
+      - 'tests/**'
+      - 'project_boundary.py'
+      - 'aiko_cloud_chess_executor.py'
+      - 'aiko_cloud_jobs.json'
+      - '.github/workflows/aiko-cloud-worker.yml'
       - '.github/workflows/aiko-cloud-evolution-quality-gate.yml'
   schedule:
     - cron: '19 */6 * * *'
@@ -89,6 +94,21 @@ jobs:
               body=source.read_text().lower()
               assert all(host not in body for host in boom_domains), str(source)
           print("AIKO_PROJECT_ISOLATION_PASS")
+          PY
+      - name: Verify strict AIKO project ownership and safe dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_project_boundary.py' -v
+          python3 aiko_cloud_chess_executor.py
+          python3 - <<'PY'
+          import json
+          x=json.load(open('aiko_cloud_results.json', encoding='utf-8'))
+          assert x['project_boundary']['accepted']==11
+          assert x['project_boundary']['held']==0
+          assert x['project_boundary']['mutation_count']==0
+          assert x['cloud_authorized_to_deploy'] is False
+          print('AIKO_OWNER_BOUNDARY_PASS')
           PY
       - name: Verify B8-003 300 ephemeral recovery cases
         shell: bash
