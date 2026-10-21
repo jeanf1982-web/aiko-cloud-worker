@@ -5,6 +5,9 @@ on:
     - cron: '13,43 * * * *'
 permissions:
   contents: read
+concurrency:
+  group: aiko-cloud-chess-one-executor
+  cancel-in-progress: false
 jobs:
   cloud-chess:
     runs-on: ubuntu-latest
