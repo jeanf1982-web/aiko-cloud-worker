@@ -7,7 +7,7 @@ OUTPUT=ROOT/"aiko_cloud_results.json"
 def decide(job):
     gate=classify(job)
     if not gate["allowed"]:
-        return {"state":gate["state"],"reason":"AIKO ownership, privacy or capability gate"}
+        return {"state":gate["state"],"reason":"AIKO ownership, privacy or capability gate","next_action":"HOLD_AND_REVIEW_WITH_PROJECT_OWNER","automatic_reassignment":False}
     if job.get("kind")=="chess_options":
         options=[{"move":"DOCUMENT_REUSABLE_TEST","score":10},{"move":"DESIGN_SANDBOX_CASE","score":8},{"move":"WAIT_FOR_LOCAL_VALIDATION","score":5}]
         return {"state":"CLOUD_DONE_PENDING_LOCAL_VALIDATION","options":options,"recommended":options[0]["move"]}
