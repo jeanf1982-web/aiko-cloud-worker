@@ -1,7 +1,7 @@
 name: AIKO Cloud Evolution Quality Gate
 on:
   push:
-    branches: [aiko-cloud-boundary-hardening-20261021, main]
+    branches: [main, 'aiko-*']
     paths:
       - 'cloud_b8_003/**'
       - 'tests/**'
