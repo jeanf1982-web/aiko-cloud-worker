@@ -1,0 +1,69 @@
+name: AIKO Growth Cloud Model Sandbox
+on:
+  push:
+    branches: [aiko-growth-github-models-sandbox-20261021]
+    paths:
+      - 'cloud_growth_models/**'
+      - '.github/workflows/aiko-growth-model-sandbox.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  models: read
+concurrency:
+  group: aiko-growth-model-sandbox-single
+  cancel-in-progress: false
+jobs:
+  public-synthetic-model-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout public-only AIKO code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Generate one AIKO sandbox candidate from GitHub Models
+        env:
+          GH_MODELS_TOKEN: ${{ github.token }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_growth_models/generate.py
+      - name: Independently verify generated plugin behavior
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_growth_models/independent_qa.py
+      - name: Check proof integrity and prohibit false certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path('artifacts/aiko-growth-models')
+          a=json.loads((p/'generation_receipt.json').read_text())
+          b=json.loads((p/'independent_qa_receipt.json').read_text())
+          assert a['project']=='AIKO' and b['owner_project']=='AIKO'
+          assert a['repository']==os.environ['GITHUB_REPOSITORY']
+          assert a['head_sha']==os.environ['GITHUB_SHA']
+          assert a['run_id']==os.environ['GITHUB_RUN_ID']
+          assert not a['certified_2_of_2'] and not b['certified_2_of_2']
+          assert not a['production_deployment'] and not b['production_deployment']
+          assert not a['private_data_transferred'] and not a['boom_access']
+          if b['status']=='SANDBOX_PASS_NOT_DEPLOYED':
+              assert b['cases_passed']==100 and b['self_test_pass']
+              assert a['model_generated']
+          else:
+              assert b['status'].startswith(('HOLD','REJECTED'))
+          print('AIKO_GROWTH_PROVIDER_RECEIPT_VALID',b['status'])
+          PY
+      - name: Archive isolated provenance and benchmarks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-growth-github-model-sandbox
+          path: artifacts/aiko-growth-models/
+          if-no-files-found: warn
+          retention-days: 7
