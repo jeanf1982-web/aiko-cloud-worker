@@ -1,0 +1,56 @@
+name: AIKO B8-003 Federated Cloud Acceptance
+on:
+  push:
+    branches: [b8-003-cloud-recovery-20261021]
+    paths:
+      - 'cloud_b8_003/**'
+      - '.github/workflows/aiko-b8-003-federated-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aiko-b8-003-federated-branch
+  cancel-in-progress: false
+jobs:
+  cloud-batch-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Checkout public-only test code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test 300 synthetic cases on off-ACER cloud runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_b8_003/acceptance.py
+      - name: Independently verify receipt structure and hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          f=pathlib.Path('artifacts/b8-003-cloud-acceptance.json')
+          receipt=json.loads(f.read_text(encoding='utf-8'))
+          proof=receipt.pop('proof_sha256')
+          verified=hashlib.sha256(json.dumps(receipt,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          assert proof==verified
+          assert receipt['cases']=={'delivery':100,'recovery':100,'rollback':100}
+          assert receipt['effect_receipts']==200
+          assert receipt['real_growth_origin'] is False
+          assert receipt['connected_to_acer'] is False
+          assert receipt['production_deployment'] is False
+          assert receipt['B8_global_certified'] is False
+          print('INDEPENDENT_RECEIPT_PASS',verified)
+          PY
+      - name: Retain cloud QA proof only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-b8-003-cloud-acceptance
+          path: artifacts/b8-003-cloud-acceptance.json
+          if-no-files-found: warn
+          retention-days: 7
