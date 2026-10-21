@@ -1,10 +1,12 @@
 name: AIKO B8-003 Federated Cloud Acceptance
 on:
   push:
-    branches: [b8-003-cloud-recovery-20261021]
+    branches: [b8-003-cloud-recovery-20261021, main]
     paths:
       - 'cloud_b8_003/**'
       - '.github/workflows/aiko-b8-003-federated-acceptance.yml'
+  schedule:
+    - cron: '37 3 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -40,6 +42,10 @@ jobs:
           assert proof==verified
           assert receipt['cases']=={'delivery':100,'recovery':100,'rollback':100}
           assert receipt['effect_receipts']==200
+          import os
+          assert receipt['github_repository']==os.environ['GITHUB_REPOSITORY']
+          assert receipt['github_commit']==os.environ['GITHUB_SHA']
+          assert receipt['github_run_id']==os.environ['GITHUB_RUN_ID']
           assert receipt['real_growth_origin'] is False
           assert receipt['connected_to_acer'] is False
           assert receipt['production_deployment'] is False
