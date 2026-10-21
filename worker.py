@@ -8,6 +8,14 @@ MAX_FUTURE_S = 3600
 NODE_ID = "AIKO_GITHUB_CLOUD_WORKER_V1"
 ALLOWED = {"sha256", "json_canonicalize", "forensics_merkle", "hash_parallel"}
 
+def verify_repository_boundary(env=None):
+    """In GitHub Actions accept only the AIKO repository, never a foreign context."""
+    context = os.environ if env is None else env
+    if context.get("GITHUB_ACTIONS") == "true" and context.get("GITHUB_REPOSITORY") != "jeanf1982-web/aiko-cloud-worker":
+        raise SystemExit("FOREIGN_REPOSITORY_DENIED")
+    return True
+
+
 
 def canonical_manifest(job_type, nonce, expires_at, payload_sha256):
     obj = {"expires_at": int(expires_at), "job_type": job_type, "nonce": nonce, "payload_sha256": payload_sha256}
@@ -52,6 +60,7 @@ def main():
     ap.add_argument("--public-key", default="keys/aiko_cloud_worker_public.pem")
     a = ap.parse_args()
 
+    verify_repository_boundary()
     now = int(time.time())
     if a.job_type not in ALLOWED:
         raise SystemExit("JOB_TYPE_DENIED")

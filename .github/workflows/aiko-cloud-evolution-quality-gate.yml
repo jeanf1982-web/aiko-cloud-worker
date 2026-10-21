@@ -1,11 +1,12 @@
 name: AIKO Cloud Evolution Quality Gate
 on:
   push:
-    branches: [aiko-cloud-boundary-hardening-20261021, main]
+    branches: [main, 'aiko-*']
     paths:
       - 'cloud_b8_003/**'
       - 'tests/**'
       - 'project_boundary.py'
+      - 'worker.py'
       - 'aiko_cloud_chess_executor.py'
       - 'aiko_cloud_jobs.json'
       - '.github/workflows/aiko-cloud-worker.yml'
@@ -100,7 +101,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m unittest discover -s tests -p 'test_project_boundary.py' -v
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
           python3 aiko_cloud_chess_executor.py
           python3 - <<'PY'
           import json
