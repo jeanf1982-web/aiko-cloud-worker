@@ -102,6 +102,9 @@ def run_300_cases():
         assert jobs.unique_effects()==200
         receipt={'schema':'AIKO_B8_003_CLOUD_ACCEPTANCE_V1',
           'source':'GITHUB_ACTIONS_EPHEMERAL_RUNNER',
+          'github_repository':os.environ.get('GITHUB_REPOSITORY','LOCAL_ISOLATED'),
+          'github_commit':os.environ.get('GITHUB_SHA','UNBOUND'),
+          'github_run_id':os.environ.get('GITHUB_RUN_ID','LOCAL'),
           'cases':{'delivery':delivery,'recovery':recovery,'rollback':rollback},
           'total_synthetic_cases':delivery+recovery+rollback,
           'effect_receipts':jobs.unique_effects(),
