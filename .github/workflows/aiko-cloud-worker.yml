@@ -31,6 +31,9 @@ on:
 
 permissions:
   contents: read
+concurrency:
+  group: aiko-signed-cloud-worker-single-executor
+  cancel-in-progress: false
 
 jobs:
   compute:
