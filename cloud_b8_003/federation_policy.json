@@ -1,0 +1,45 @@
+{
+  "schema": "AIKO_B8_003_CLOUD_FEDERATION_POLICY_V1",
+  "purpose": "Off-ACER synthetic batch verification of recovery and rollback",
+  "profiles": {
+    "github_actions": {
+      "status": "REMOTE_RUN_VERIFIED",
+      "runner": "ubuntu-latest",
+      "kind": "EPHEMERAL_SYNTHETIC_QA",
+      "batch_size": 100,
+      "batches": 3,
+      "repository": "jeanf1982-web/aiko-cloud-worker",
+      "workflow": ".github/workflows/aiko-b8-003-federated-acceptance.yml",
+      "receipt_artifact": "aiko-b8-003-cloud-acceptance",
+      "cost_policy": "ZERO_COST_PUBLIC_STANDARD_RUNNER_ONLY"
+    },
+    "cloudflare_workers": {
+      "status": "NOT_INTEGRATED_FOR_B8_003",
+      "mode": "PENDING_SEPARATE_SIGNED_PROTOCOL"
+    },
+    "deno_deploy": {
+      "status": "NOT_INTEGRATED_FOR_B8_003"
+    }
+  },
+  "privacy": {
+    "public_synthetic_only": true,
+    "transfer_private_data": false,
+    "local_credentials": false,
+    "remote_user_device_control": false
+  },
+  "fallback": {
+    "paid_providers": false,
+    "acer_cpu_fallback": false,
+    "on_cloud_unavailable": "HOLD_WITH_RECEIPT"
+  },
+  "limits": {
+    "no_automatic_production_deploy": true,
+    "required_real_growth_origin_for_B8": true,
+    "required_independent_rollback": true,
+    "guardian_bypass": false
+  },
+  "claims": {
+    "real_growth_release_certified": false,
+    "B8_8_of_8": false
+  }
+}
