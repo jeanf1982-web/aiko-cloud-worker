@@ -1,7 +1,7 @@
 name: AIKO Cloud Evolution Quality Gate
 on:
   push:
-    branches: [aiko-cross-sector-cert-20261021, main]
+    branches: [aiko-cross-sector-cert-20261021, aiko-isolation-hardening-20261021, main]
     paths:
       - 'cloud_b8_003/**'
       - '.github/workflows/aiko-cloud-evolution-quality-gate.yml'
@@ -69,6 +69,26 @@ jobs:
           out.write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n",encoding="utf-8")
           print(f"AIKO_CLOUD_QUALITY_GATE_{payload['quality_gate']}: {len(examined)} files, {len(failures)} failures")
           if failures:raise SystemExit(1)
+          PY
+      - name: Assert AIKO and BOOM project separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib
+          root=pathlib.Path(".")
+          policy=json.loads((root/"cloud_b8_003/federation_policy.json").read_text())
+          assert policy.get("project_identity")=="AIKO"
+          assert all(value is False for value in policy["project_separation"].values())
+          assert not (root/".github/workflows/boom-member-production-smoke.yml").exists()
+          assert not (root/"cloud_b8_003/global_public_cert.py").exists()
+          scoped=[root/"cloud_b8_003/README.md",
+                  root/".github/workflows/aiko-cloud-evolution-quality-gate.yml"]
+          for source in scoped:
+              text=source.read_text().lower()
+              assert "organization-it.vercel.app" not in text
+              assert "members.espartaaps.it" not in text
+          print("AIKO_PROJECT_ISOLATION_PASS")
           PY
       - name: Verify B8-003 300 ephemeral recovery cases
         shell: bash
