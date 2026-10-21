@@ -1,5 +1,10 @@
 name: AIKO Cloud Evolution Quality Gate
 on:
+  push:
+    branches: [aiko-cross-sector-cert-20261021, main]
+    paths:
+      - 'cloud_b8_003/**'
+      - '.github/workflows/aiko-cloud-evolution-quality-gate.yml'
   schedule:
     - cron: '19 */6 * * *'
   workflow_dispatch:
@@ -65,6 +70,26 @@ jobs:
           print(f"AIKO_CLOUD_QUALITY_GATE_{payload['quality_gate']}: {len(examined)} files, {len(failures)} failures")
           if failures:raise SystemExit(1)
           PY
+      - name: Verify B8-003 300 ephemeral recovery cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_b8_003/acceptance.py
+      - name: Verify public BOOM routes and cloud policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_b8_003/global_public_cert.py
+      - name: Upload cross-sector read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiko-cross-sector-public-cert
+          path: |
+            artifacts/aiko-cross-sector-public-cert.json
+            artifacts/b8-003-cloud-acceptance.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Upload durable quality evidence
         if: always()
         uses: actions/upload-artifact@v4
