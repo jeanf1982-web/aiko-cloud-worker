@@ -43,17 +43,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Execute allowlisted signed job
+      - name: Execute allowlisted signed job without shell interpolation
         shell: bash
+        env:
+          AIKO_JOB_TYPE: ${{ inputs.job_type }}
+          AIKO_PAYLOAD_B64: ${{ inputs.payload_b64 }}
+          AIKO_NONCE: ${{ inputs.nonce }}
+          AIKO_EXPIRES_AT: ${{ inputs.expires_at }}
+          AIKO_PAYLOAD_SHA256: ${{ inputs.payload_sha256 }}
+          AIKO_SIGNATURE_B64: ${{ inputs.signature_b64 }}
         run: |
           set -euo pipefail
           python worker.py \
-            --job-type '${{ inputs.job_type }}' \
-            --payload-b64 '${{ inputs.payload_b64 }}' \
-            --nonce '${{ inputs.nonce }}' \
-            --expires-at '${{ inputs.expires_at }}' \
-            --payload-sha256 '${{ inputs.payload_sha256 }}' \
-            --signature-b64 '${{ inputs.signature_b64 }}'
+            --job-type "$AIKO_JOB_TYPE" \
+            --payload-b64 "$AIKO_PAYLOAD_B64" \
+            --nonce "$AIKO_NONCE" \
+            --expires-at "$AIKO_EXPIRES_AT" \
+            --payload-sha256 "$AIKO_PAYLOAD_SHA256" \
+            --signature-b64 "$AIKO_SIGNATURE_B64"
       - name: Upload immutable result artifact
         uses: actions/upload-artifact@v4
         with:
