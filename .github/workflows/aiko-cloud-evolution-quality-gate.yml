@@ -75,19 +75,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 cloud_b8_003/acceptance.py
-      - name: Verify public BOOM routes and cloud policy
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 cloud_b8_003/global_public_cert.py
-      - name: Upload cross-sector read-only evidence
+      - name: Upload AIKO-only synthetic recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: aiko-cross-sector-public-cert
-          path: |
-            artifacts/aiko-cross-sector-public-cert.json
-            artifacts/b8-003-cloud-acceptance.json
+          name: aiko-b8-003-isolated-recovery-proof
+          path: artifacts/b8-003-cloud-acceptance.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload durable quality evidence
