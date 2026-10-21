@@ -79,6 +79,17 @@ class BoundaryTests(unittest.TestCase):
         self.assertIn('"$AIKO_SIGNATURE_B64"', command)
         self.assertIn('"$AIKO_PAYLOAD_B64"', command)
 
+    def test_cloud_workers_are_serialized_without_job_cancellation(self):
+        workers = [
+            ROOT / ".github/workflows/aiko-cloud-chess-executor.yml",
+            ROOT / ".github/workflows/aiko-cloud-worker.yml",
+        ]
+        for worker in workers:
+            content = worker.read_text(encoding="utf8")
+            self.assertIn("concurrency:", content, str(worker))
+            self.assertIn("cancel-in-progress: false", content, str(worker))
+            self.assertIn("group: aiko-", content, str(worker))
+
     def test_no_project_cross_route_or_cloud_fallback(self):
         policy = json.loads((ROOT / "cloud_b8_003/federation_policy.json").read_text())
         self.assertEqual(policy["project_identity"], "AIKO")
