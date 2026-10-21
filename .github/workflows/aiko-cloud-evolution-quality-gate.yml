@@ -9,6 +9,7 @@ on:
       - 'aiko_cloud_chess_executor.py'
       - 'aiko_cloud_jobs.json'
       - '.github/workflows/aiko-cloud-worker.yml'
+      - '.github/workflows/aiko-cloud-chess-executor.yml'
       - '.github/workflows/aiko-cloud-evolution-quality-gate.yml'
   schedule:
     - cron: '19 */6 * * *'
