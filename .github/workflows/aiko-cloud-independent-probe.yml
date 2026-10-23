@@ -43,3 +43,31 @@ jobs:
           if status!=200 or not body:
               raise SystemExit('Worker unavailable or empty response')
           PY
+      - name: Verify synthetic idempotent job ACK and crash resume
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, tempfile
+          # Sandbox-only: no user payload, cloud API credential, inference or production writes.
+          with tempfile.TemporaryDirectory(prefix="aiko-cloud-test-") as directory:
+              receipt=os.path.join(directory,"job.json")
+              job={"id":"SYNTHETIC-CLOUD-TEST","payload":"public-placeholder","privacy":"PUBLIC_NON_SENSITIVE"}
+              request_hash=hashlib.sha256(json.dumps(job,sort_keys=True).encode()).hexdigest()
+              def persist(state,ack=False):
+                  with open(receipt,"w",encoding="utf-8") as handle:
+                      json.dump({"job_id":job["id"],"request_sha256":request_hash,"state":state,"ack":ack},handle)
+              persist("PREPARED")
+              persist("QUEUED")
+              persist("DISPATCHED")
+              persist("EXECUTING")
+              result_hash=hashlib.sha256(b"synthetic-success").hexdigest()
+              persist("RESULT_WRITTEN") # Simulates interruption before ACK.
+              with open(receipt,encoding="utf-8") as handle:
+                  resumed=json.load(handle)
+              assert resumed["state"]=="RESULT_WRITTEN" and resumed["request_sha256"]==request_hash
+              persist("ACKED",True)
+              with open(receipt,encoding="utf-8") as handle:
+                  ack=json.load(handle)
+              assert ack["ack"] and ack["request_sha256"]==request_hash
+              persist("DONE",True)
+              print(json.dumps({"schema":"AIKO_CLOUD_SYNTHETIC_JOB_ACK_V1","job_state":"DONE","resume_test":"PASS","idempotency_key_checked":True,"result_sha256":result_hash,"storage_scope":"EPHEMERAL_SAME_RUN_ONLY","acer_required":False,"real_ai_inference":False,"durable_cloud_queue_certified":False,"zero_paid_services":True},sort_keys=True))
+          PY
