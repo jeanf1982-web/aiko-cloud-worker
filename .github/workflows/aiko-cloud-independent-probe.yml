@@ -1,0 +1,45 @@
+name: AIKO Cloud Independent Probe
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 * * * *'
+  push:
+    paths:
+      - '.github/workflows/aiko-cloud-independent-probe.yml'
+permissions:
+  contents: read
+concurrency:
+  group: aiko-cloud-readonly-probe
+  cancel-in-progress: false
+jobs:
+  cloud-reachability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify public worker independently of ACER
+        env:
+          HEALTH_URL: https://aiko-zero-cost-probe.jeanf1982.workers.dev/
+        run: |
+          python3 - <<'PY'
+          import datetime,hashlib,json,os,urllib.request
+          url=os.environ['HEALTH_URL']
+          request=urllib.request.Request(url,method='GET',headers={'Accept':'text/plain','User-Agent':'AIKO-Cloud-ReadOnly-Probe/1'})
+          with urllib.request.urlopen(request,timeout=9) as response:
+              status=response.status
+              body=response.read(4096)
+              content_type=response.headers.get('Content-Type','')
+          observation={
+              'schema':'AIKO_CLOUD_INDEPENDENT_HTTP_PROBE_V1',
+              'checked_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'status':status,
+              'content_type':content_type,
+              'body_len':len(body),
+              'body_sha256':hashlib.sha256(body).hexdigest(),
+              'acer_needed':False,
+              'gpt_gemini_autonomous_dialogue_certified':False,
+              'no_secrets_used':True
+          }
+          print(json.dumps(observation,sort_keys=True))
+          if status!=200 or not body:
+              raise SystemExit('Worker unavailable or empty response')
+          PY
