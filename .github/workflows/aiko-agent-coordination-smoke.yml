@@ -1,0 +1,40 @@
+name: AIKO Agent Cloud Coordination (Synthetic, Read-only)
+on:
+  pull_request:
+    paths:
+      - 'coordination/**'
+      - '.github/workflows/aiko-agent-coordination-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aiko-agent-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  safety-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run synthetic authorization and isolation regression tests
+        run: python3 -m unittest discover -s coordination -p 'test_*.py' -v
+      - name: Assert no agent credentials or deployment mechanism
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          policy = Path('coordination/gate.py').read_text(encoding='utf-8')
+          assert 'production_deploy' in policy
+          assert 'remote_device_access' in policy
+          assert 'model_inference' in policy
+          workflow = Path('.github/workflows/aiko-agent-coordination-smoke.yml').read_text(encoding='utf-8')
+          assert 'contents: read' in workflow
+          assert 'persist-credentials: false' in workflow
+          print('AIKO_AGENT_COORDINATION_STATIC_GATE_PASS')
+          PY
