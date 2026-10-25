@@ -1,0 +1,59 @@
+name: AIKO Codex OpenCode CLI Cloud Smoke (No Auth)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/aiko-codex-opencode-cli-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aiko-agent-cli-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ephemeral-cli-install-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout candidate without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned CLI packages only in disposable runner directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder="$RUNNER_TEMP/aiko-agent-cli"
+          mkdir -p "$folder"
+          npm install --prefix "$folder" --no-save --ignore-scripts --no-audit --no-fund --loglevel=error \
+            @openai/codex@0.164.0 opencode-ai@1.19.4
+          # OpenCode's npm shim needs its documented, platform-specific postinstall.
+          # The runner is ephemeral and holds no provider tokens or writable checkout credentials.
+          node "$folder/node_modules/opencode-ai/postinstall.mjs"
+          test -x "$folder/node_modules/.bin/codex"
+          test -x "$folder/node_modules/.bin/opencode"
+          "$folder/node_modules/.bin/codex" --version
+          "$folder/node_modules/.bin/opencode" --version
+          echo "AIKO_AGENT_CLI_NO_AUTH_INSTALL_PASS"
+      - name: Assert ephemeral-only and zero external agent calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/aiko-codex-opencode-cli-smoke.yml').read_text()
+          install_step = src.split('      - name: Install pinned CLI packages only in disposable runner directory', 1)[1].split('      - name: Assert ephemeral-only and zero external agent calls', 1)[0]
+          for prohibited in ('codex login', 'opencode auth login', 'OPENAI_API_KEY:', 'ANTHROPIC_API_KEY:', 'npm install -g', 'git push', 'deploy'):
+              assert prohibited not in install_step, f'Prohibited in install: {prohibited}'
+          assert 'contents: read' in src
+          assert 'persist-credentials: false' in src
+          assert '--ignore-scripts' in src
+          assert 'RUNNER_TEMP' in src
+          print('AIKO_AGENT_CLI_INSTALL_STATIC_POLICY_PASS')
+          PY
