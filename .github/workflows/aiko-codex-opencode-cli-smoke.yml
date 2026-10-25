@@ -33,6 +33,9 @@ jobs:
           mkdir -p "$folder"
           npm install --prefix "$folder" --no-save --ignore-scripts --no-audit --no-fund --loglevel=error \
             @openai/codex@0.164.0 opencode-ai@1.19.4
+          # OpenCode's npm shim needs its documented, platform-specific postinstall.
+          # The runner is ephemeral and holds no provider tokens or writable checkout credentials.
+          node "$folder/node_modules/opencode-ai/postinstall.mjs"
           test -x "$folder/node_modules/.bin/codex"
           test -x "$folder/node_modules/.bin/opencode"
           "$folder/node_modules/.bin/codex" --version
