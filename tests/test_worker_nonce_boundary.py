@@ -46,6 +46,7 @@ class NonceBoundaryTests(unittest.TestCase):
                 self.assertIn("NONCE_FORMAT_INVALID", result.stderr + result.stdout)
                 self.assertEqual(files, [])
 
+    # Positive-format control must fail exclusively on its deliberately bogus signature.
     def test_valid_nonce_reaches_signature_check_but_never_executes(self):
         result, files = self.run_worker("valid_nonce-20261025")
         self.assertNotEqual(result.returncode, 0)
