@@ -1,5 +1,5 @@
 ﻿from __future__ import annotations
-import argparse, base64, gzip, hashlib, json, os, subprocess, sys, tempfile, time
+import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, tempfile, time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -66,6 +66,10 @@ def main():
         raise SystemExit("JOB_TYPE_DENIED")
     if a.expires_at < now - 60 or a.expires_at > now + MAX_FUTURE_S:
         raise SystemExit("MANIFEST_EXPIRED_OR_TOO_FAR")
+    # Match the independent delivery verifier before signature checks or execution.
+    # Reject control characters, path separators, empty and oversized identifiers.
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,80}", a.nonce):
+        raise SystemExit("NONCE_FORMAT_INVALID")
     payload = base64.b64decode(a.payload_b64, validate=True)
     if len(payload) > MAX_PAYLOAD:
         raise SystemExit("PAYLOAD_TOO_LARGE")
