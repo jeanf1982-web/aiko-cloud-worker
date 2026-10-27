@@ -156,6 +156,44 @@ jobs:
         with:
           subject-path: artifacts/b8-crossrun-artifact-proof.json
           create-storage-record: false
+      - name: Verify signed B8 provenance independently with GitHub CLI
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify artifacts/b8-crossrun-artifact-proof.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aiko-cloud-evolution-quality-gate.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --deny-self-hosted-runners \
+            --format json > artifacts/b8-crossrun-attestation-verified-raw.json
+          python3 - <<'PY'
+          import json, pathlib, os, hashlib
+          raw=pathlib.Path('artifacts/b8-crossrun-attestation-verified-raw.json')
+          att=json.loads(raw.read_text())
+          assert isinstance(att,list) and att
+          assert all(isinstance(r.get('verificationResult'),dict) for r in att)
+          source=pathlib.Path('artifacts/b8-crossrun-artifact-proof.json')
+          receipt=json.loads(source.read_text())
+          assert receipt.get('full_growth_delivery_certified') is False
+          assert receipt.get('acer_physical_off_verified') is False
+          summary={
+            'schema':'AIKO_B8_GITHUB_CRYPTO_PROVENANCE_VERIFY_V1',
+            'repository':os.environ['GITHUB_REPOSITORY'],
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'subject_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'verified_attestations':len(att),
+            'scope':'SYNTHETIC_CLOUD_QA_NOT_GROWTH_RELEASE',
+            'production_certified':False,
+            'owner_release_authorized':False
+          }
+          pathlib.Path('artifacts/b8-crossrun-attestation-verified.json').write_text(
+              json.dumps(summary,sort_keys=True,indent=2)+'\n')
+          raw.unlink()
+          print('AIKO_SIGNED_CROSSRUN_ATTESTATION_VERIFIED',len(att))
+          PY
       - name: Upload AIKO-only synthetic recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -165,6 +203,7 @@ jobs:
             artifacts/b8-003-cloud-acceptance.json
             artifacts/b8-003-real-process-crash-proof.json
             artifacts/b8-crossrun-artifact-proof.json
+            artifacts/b8-crossrun-attestation-verified.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload durable quality evidence
