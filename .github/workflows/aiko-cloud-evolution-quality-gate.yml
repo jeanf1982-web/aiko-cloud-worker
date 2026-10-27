@@ -17,6 +17,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: aiko-cloud-evolution-quality-gate
   cancel-in-progress: false
@@ -141,6 +142,13 @@ jobs:
           assert receipt['B8_global_certified'] is False
           print('AIKO_REAL_CRASH_INDEPENDENT_RECEIPT_PASS')
           PY
+      - name: Verify persisted synthetic receipt from an earlier GitHub run
+        shell: bash
+        env:
+          GH_TOKEN_FOR_ARTIFACT_READ: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 cloud_b8_003/cross_run_artifact.py
       - name: Upload AIKO-only synthetic recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -149,6 +157,7 @@ jobs:
           path: |
             artifacts/b8-003-cloud-acceptance.json
             artifacts/b8-003-real-process-crash-proof.json
+            artifacts/b8-crossrun-artifact-proof.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload durable quality evidence
