@@ -18,6 +18,8 @@ on:
 permissions:
   contents: read
   actions: read
+  id-token: write
+  attestations: write
 concurrency:
   group: aiko-cloud-evolution-quality-gate
   cancel-in-progress: false
@@ -149,6 +151,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 cloud_b8_003/cross_run_artifact.py
+      - name: Sign GitHub provenance for synthetic B8 cross-run receipt
+        uses: actions/attest@v4
+        with:
+          subject-path: artifacts/b8-crossrun-artifact-proof.json
+          create-storage-record: false
       - name: Upload AIKO-only synthetic recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
