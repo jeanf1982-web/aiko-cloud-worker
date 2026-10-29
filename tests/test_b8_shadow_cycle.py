@@ -160,7 +160,7 @@ class ShadowCycleTests(unittest.TestCase):
 
     def test_reject_non_shadow_workspace(self):
         with self.assertRaisesRegex(ValueError, "NON_SHADOW_WORKSPACE_DENIED"):
-            ShadowJournal(Path(self.tmp.name))
+            ShadowJournal(Path(self.tmp.name) / "untrusted-workspace")
 
     def test_reject_missing_shadow_marker(self):
         (self.root / ".aiko_shadow_only").unlink()
