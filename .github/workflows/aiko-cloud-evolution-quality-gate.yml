@@ -122,6 +122,23 @@ jobs:
         run: |
           set -euo pipefail
           python3 cloud_b8_003/acceptance.py
+      - name: Verify fenced synthetic B8 apply and rollback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 cloud_b8_003/shadow_cycle.py > artifacts/b8-shadow-fenced-rollback-proof.json
+          python3 - <<'PY'
+          import json, pathlib
+          proof=json.loads(pathlib.Path("artifacts/b8-shadow-fenced-rollback-proof.json").read_text())
+          if (proof.get("schema")!="AIKO_B8_SHADOW_FENCED_ROLLBACK_PROOF_V1"
+              or proof.get("result")!="SYNTHETIC_SHADOW_PASS"
+              or proof.get("state")!="ROLLED_BACK"
+              or any(proof.get(key) is not False for key in
+                 ("owner_release_authorized","independent_codex_approval",
+                  "real_growth_source","production_deployment","B8_global_certified"))):
+              raise SystemExit("AIKO_B8_SHADOW_NO_GO_OR_ROLLBACK_FAILED")
+          print("AIKO_B8_FENCED_SHADOW_ROLLBACK_PASS")
+          PY
       - name: Test 100 real child process crashes and persisted recovery off ACER
         shell: bash
         run: |
@@ -196,6 +213,45 @@ jobs:
           raw.unlink()
           print('AIKO_SIGNED_CROSSRUN_ATTESTATION_VERIFIED',len(att))
           PY
+      - name: Sign GHOST-only fenced rollback evidence
+        uses: actions/attest@v4
+        with:
+          subject-path: artifacts/b8-shadow-fenced-rollback-proof.json
+          create-storage-record: false
+      - name: Independently verify signed GHOST rollback provenance
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify artifacts/b8-shadow-fenced-rollback-proof.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aiko-cloud-evolution-quality-gate.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --deny-self-hosted-runners \
+            --format json > artifacts/b8-shadow-fenced-attestation-verified-raw.json
+          python3 - <<'PY'
+          import json,pathlib,hashlib,os
+          root=pathlib.Path("artifacts")
+          signed=json.loads((root/"b8-shadow-fenced-attestation-verified-raw.json").read_text())
+          receipt=json.loads((root/"b8-shadow-fenced-rollback-proof.json").read_text())
+          if not isinstance(signed,list) or not signed or not all(
+              isinstance(x.get("verificationResult"),dict) for x in signed):
+              raise SystemExit("AIKO_SHADOW_ATTESTATION_INVALID")
+          if receipt["B8_global_certified"] is not False or receipt["owner_release_authorized"] is not False:
+              raise SystemExit("AIKO_SHADOW_RELEASE_CLAIM_DENIED")
+          (root/"b8-shadow-fenced-attestation-verified.json").write_text(
+              json.dumps({"schema":"AIKO_B8_SHADOW_ATTESTATION_VERIFIED_V1",
+              "repository":os.environ["GITHUB_REPOSITORY"],
+              "commit":os.environ["GITHUB_SHA"],"run_id":os.environ["GITHUB_RUN_ID"],
+              "receipt_sha256":hashlib.sha256((root/"b8-shadow-fenced-rollback-proof.json").read_bytes()).hexdigest(),
+              "verified_attestations":len(signed),
+              "scope":"SYNTHETIC_GHOST_ONLY",
+              "growth_autonomous_certified":False,
+              "production_authorized":False},sort_keys=True,indent=2)+"\n")
+          (root/"b8-shadow-fenced-attestation-verified-raw.json").unlink()
+          print("AIKO_B8_GHOST_SHADOW_ATTESTATION_VERIFIED",len(signed))
+          PY
       - name: Upload AIKO-only synthetic recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -206,6 +262,8 @@ jobs:
             artifacts/b8-003-real-process-crash-proof.json
             artifacts/b8-crossrun-artifact-proof.json
             artifacts/b8-crossrun-attestation-verified.json
+            artifacts/b8-shadow-fenced-rollback-proof.json
+            artifacts/b8-shadow-fenced-attestation-verified.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload durable quality evidence
