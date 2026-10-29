@@ -11,6 +11,11 @@ ARTIFACT="aiko-b8-003-isolated-recovery-proof"
 FILENAME="b8-003-real-process-crash-proof.json"
 API="https://api.github.com/repos/"+REPO+"/actions/artifacts?per_page=100"
 MAX_ARTIFACT_AGE_S=48*3600
+APPROVED_WORKFLOW_ID=388776488
+APPROVED_WORKFLOW_PATH=".github/workflows/aiko-cloud-evolution-quality-gate.yml"
+REQUIRED_RECOVERY_CASES=frozenset((
+    "child_process_crashes", "reclaims", "stale_epoch_rejections",
+    "no_duplicate_file_write", "unique_effect_receipts"))
 
 def _fresh_utc_stamp(iso,now=None):
     if not isinstance(iso,str):return False
@@ -39,6 +44,28 @@ def verify_artifact_meta(meta,current_run,now=None):
         and _fresh_utc_stamp(meta.get("created_at"),now)
     )
 
+def verify_source_workflow_run(run,meta):
+    """Authorize the preceding artifact's PRODUCING workflow via GitHub API."""
+    if not isinstance(run,dict) or not isinstance(meta,dict):
+        return False
+    src=meta.get("workflow_run")
+    if not isinstance(src,dict):return False
+    branch=run.get("head_branch")
+    return (
+        type(run.get("id")) is int and run["id"]==src.get("id")
+        and type(run.get("workflow_id")) is int
+        and run["workflow_id"]==APPROVED_WORKFLOW_ID
+        and run.get("path")==APPROVED_WORKFLOW_PATH
+        and run.get("status")=="completed" and run.get("conclusion")=="success"
+        and run.get("event") in ("push","workflow_dispatch","schedule")
+        and isinstance(branch,str) and
+        (branch=="main" or (branch.startswith("aiko-") and len(branch)<=100))
+        and run.get("head_sha")==src.get("head_sha")
+        and isinstance(run.get("head_repository"),dict)
+        and run["head_repository"].get("id")==REPO_ID
+        and run.get("repository",{}).get("id")==REPO_ID
+    )
+
 def verify_archive(raw,meta):
     want=meta["digest"].split(":",1)[1]
     if len(want)!=64 or hashlib.sha256(raw).hexdigest()!=want:
@@ -56,12 +83,18 @@ def verify_archive(raw,meta):
         and r.get("repository")==REPO
         and str(r.get("run_id"))==str(w["id"])
         and r.get("commit")==w["head_sha"]
-        and r.get("actual_child_processes_killed")==100
-        and isinstance(r.get("cases"),dict)
-        and bool(r["cases"])
-        and all(isinstance(n,int) and n==100 for n in r["cases"].values())
+        and type(r.get("actual_child_processes_killed")) is int
+        and r["actual_child_processes_killed"]==100
+        and type(r.get("cases")) is dict
+        and set(r["cases"])==REQUIRED_RECOVERY_CASES
+        and all(type(r["cases"][k]) is int and r["cases"][k]==100
+                for k in REQUIRED_RECOVERY_CASES)
+        and r.get("status")=="CLOUD_SANDBOX_CRASH_RECOVERY_PASS"
+        and r.get("source")=="EPHEMERAL_GITHUB_LINUX_RUNNER"
         and r.get("production_deployment") is False
         and r.get("real_growth_source") is False
+        and r.get("local_acer_changed") is False
+        and r.get("real_multi_provider_failover") is False
         and r.get("B8_global_certified") is False
     ):
         raise ValueError("RECEIPT_RUN_BINDING_OR_CASE_CONTRACT_FAILED")
@@ -94,10 +127,16 @@ def get_artifact_zip(artifact_id,token):
                 or host in ("release-assets.githubusercontent.com","pipelines.actions.githubusercontent.com"))):
         raise ValueError("UNTRUSTED_GITHUB_ARTIFACT_REDIRECT")
     # Never pass bearer authentication to temporary signed artifact storage.
-    with urllib.request.urlopen(urllib.request.Request(dest,headers={"User-Agent":"AIKO-crossrun-proof"}),timeout=15) as f:
-        content=f.read(3_000_001)
-        if len(content)>3_000_000:raise ValueError("ZIP_TOO_LARGE")
-        return content
+    # No implicit second redirect: a signed storage URL must be a terminal hop.
+    try:
+        with opener.open(urllib.request.Request(dest,headers={"User-Agent":"AIKO-crossrun-proof"}),timeout=15) as f:
+            content=f.read(3_000_001)
+            if len(content)>3_000_000:raise ValueError("ZIP_TOO_LARGE")
+            return content
+    except urllib.error.HTTPError as e:
+        if e.code in (301,302,303,307,308):
+            raise ValueError("SECOND_ARTIFACT_REDIRECT_DENIED") from e
+        raise
 
 def main():
     if os.environ.get("GITHUB_ACTIONS")!="true" or os.environ.get("GITHUB_REPOSITORY")!=REPO:
@@ -109,9 +148,18 @@ def main():
         artifacts=json.load(f)["artifacts"]
     accepted=[a for a in artifacts if verify_artifact_meta(a,nowrun)]
     if not accepted:raise RuntimeError("PREVIOUS_RUN_ARTIFACT_NOT_FOUND")
-    # Use latest eligible artifact, never the one produced by the current run.
-    proof=verify_archive(get_artifact_zip(accepted[0]["id"],token),accepted[0])
+    # API metadata and ZIP digest alone do not prove the trusted producer workflow.
+    candidate=accepted[0]
+    run_url="https://api.github.com/repos/"+REPO+"/actions/runs/"+str(candidate["workflow_run"]["id"])
+    with urllib.request.urlopen(urllib.request.Request(run_url,headers=headers(token)),timeout=15) as f:
+        original_run=json.load(f)
+    if not verify_source_workflow_run(original_run,candidate):
+        raise RuntimeError("UNTRUSTED_CROSSRUN_PRODUCER_WORKFLOW")
+    proof=verify_archive(get_artifact_zip(candidate["id"],token),candidate)
     proof.update(schema="AIKO_B8_CROSS_RUN_ARTIFACT_EVIDENCE_V1",
+        producer_workflow_id=APPROVED_WORKFLOW_ID,
+        producer_workflow_path=APPROVED_WORKFLOW_PATH,
+        producer_workflow_conclusion="success",
         current_run_id=int(nowrun),artifact_id=accepted[0]["id"],
         acer_physical_off_verified=False,
         full_growth_delivery_certified=False,release_authorized=False,
