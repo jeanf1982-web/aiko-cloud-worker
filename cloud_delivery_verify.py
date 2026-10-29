@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -72,7 +73,8 @@ def verify(root: Path, env: dict, public_key: Path) -> dict:
     check(isinstance(nonce, str) and bool(re.fullmatch(r"[A-Za-z0-9_-]{8,80}", nonce)),
           "NONCE_FORMAT_INVALID")
     expires = int(env["AIKO_EXPIRES_AT"])
-    check(expires >= int(time.time()) - 60, "EXPIRED_MANIFEST")
+    now = int(time.time())
+    check(now - 60 <= expires <= now + 3600, "MANIFEST_EXPIRY_OUT_OF_RANGE")
     payload = base64.b64decode(env["AIKO_PAYLOAD_B64"], validate=True)
     check(len(payload) <= 1024 * 1024, "PAYLOAD_TOO_LARGE")
     requested_hash = env["AIKO_PAYLOAD_SHA256"]
@@ -100,6 +102,13 @@ def verify(root: Path, env: dict, public_key: Path) -> dict:
     check(result.get("job_type") == kind, "JOB_MISMATCH")
     check(result.get("nonce") == nonce, "NONCE_MISMATCH")
     check(result.get("payload_sha256") == requested_hash, "PAYLOAD_MISMATCH")
+    started_at = result.get("started_at")
+    finished_at = result.get("finished_at")
+    check(type(started_at) in (int, float) and type(finished_at) in (int, float)
+          and math.isfinite(started_at) and math.isfinite(finished_at),
+          "RESULT_TIME_INVALID")
+    check(0 <= finished_at - started_at <= 20 * 60 and finished_at <= time.time() + 60,
+          "RESULT_TIMING_INVALID")
     runner = result.get("runner") or {}
     check(str(runner.get("github_run_id")) == run_id, "RUN_MISMATCH")
     check(str(runner.get("github_sha")).lower() == commit.lower(), "COMMIT_MISMATCH")
