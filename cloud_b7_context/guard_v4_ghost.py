@@ -38,12 +38,13 @@ def guarded_preprocess(user_text,context,downstream,requires_recent_context=Fals
     _text(user_text,"BEFORE")
     if type(requires_recent_context) is not bool:raise ContextRejected("INVALID_RECENT_CONTEXT_FLAG")
     if type(context) is not dict or not callable(downstream):raise ContextRejected("INVALID_CONTEXT_OR_PIPELINE")
-    if requires_recent_context and MARKER in user_text:raise ContextRejected("FORGED_MARKER_IN_USER_INPUT")
+    # Reserved protocol framing must never originate in the user request.
+    if MARKER in user_text:raise ContextRejected("FORGED_MARKER_IN_USER_INPUT")
     # Pin the expected transcript BEFORE the potentially untrusted pipeline runs.
     expected_suffix=_history_suffix(context) if requires_recent_context else None
     isolated_context=deepcopy(context)
     out=_text(downstream(user_text,isolated_context),"AFTER")
-    if not requires_recent_context and MARKER in out and MARKER not in user_text:
+    if not requires_recent_context and MARKER in out:
         raise ContextRejected("UNEXPECTED_RECENT_CONTEXT_FROM_DOWNSTREAM")
     if user_text not in out:
         raise ContextRejected("ORIGINAL_TEXT_NOT_PRESERVED")
