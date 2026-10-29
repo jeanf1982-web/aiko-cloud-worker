@@ -69,37 +69,40 @@ def run_300_cases():
         delivery=0; recovery=0; rollback=0
         for idx in range(100):
             key=f'delivery-{idx:03}';dest=home/f'{key}.txt';dest.write_bytes(before)
-            jobs.put(key);token=jobs.claim(key);assert token == 1
+            jobs.put(key);token=jobs.claim(key)
+            if token != 1: raise AssertionError('B8_CLAIM_EPOCH_INVALID')
             atomic_write(dest,after)
-            assert sha(dest.read_bytes())==sha(after)
-            assert jobs.commit(key,token,sha(after))
-            assert jobs.claim(key) is None
-            assert jobs.row(key)==('DONE',1,sha(after))
+            if not (sha(dest.read_bytes())==sha(after)): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_1")
+            if not (jobs.commit(key,token,sha(after))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_2")
+            if not (jobs.claim(key) is None): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_3")
+            if not (jobs.row(key)==('DONE',1,sha(after))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_4")
             delivery+=1
-        assert jobs.unique_effects()==100
+        if not (jobs.unique_effects()==100): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_5")
         for idx in range(100):
             key=f'recovery-{idx:03}';dest=home/f'{key}.txt';dest.write_bytes(before)
-            jobs.put(key);old=jobs.claim(key);assert old==1
+            jobs.put(key);old=jobs.claim(key)
+            if old != 1: raise AssertionError('B8_OLD_EPOCH_INVALID')
             # Simulated crash leaves journal claim; expire the lease in test DB only.
             with jobs.connect() as c:
                 c.execute('UPDATE jobs SET lease_until=0 WHERE id=?',(key,))
-            newer=Queue(db);current=newer.claim(key);assert current==2
-            assert not newer.commit(key,old,sha(after))
+            newer=Queue(db);current=newer.claim(key)
+            if current != 2: raise AssertionError('B8_RECOVERY_EPOCH_INVALID')
+            if not (not newer.commit(key,old,sha(after))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_6")
             atomic_write(dest,after)
-            assert newer.commit(key,current,sha(dest.read_bytes()))
-            assert newer.row(key)==('DONE',2,sha(after))
+            if not (newer.commit(key,current,sha(dest.read_bytes()))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_7")
+            if not (newer.row(key)==('DONE',2,sha(after))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_8")
             recovery+=1
-        assert jobs.unique_effects()==200
+        if not (jobs.unique_effects()==200): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_9")
         for idx in range(100):
             dest=home/f'rollback-{idx:03}.txt';dest.write_bytes(before)
             original=sha(dest.read_bytes());atomic_write(dest,after)
-            assert sha(dest.read_bytes())==sha(after)
+            if not (sha(dest.read_bytes())==sha(after)): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_10")
             # Independent verification rejects a deliberately invalid candidate.
             verified=False
             if not verified:atomic_write(dest,before)
-            assert sha(dest.read_bytes())==original
+            if not (sha(dest.read_bytes())==original): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_11")
             rollback+=1
-        assert jobs.unique_effects()==200
+        if not (jobs.unique_effects()==200): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_12")
         receipt={'schema':'AIKO_B8_003_CLOUD_ACCEPTANCE_V1',
           'source':'GITHUB_ACTIONS_EPHEMERAL_RUNNER',
           'github_repository':os.environ.get('GITHUB_REPOSITORY','LOCAL_ISOLATED'),
@@ -120,5 +123,5 @@ if __name__=='__main__':
     data=run_300_cases()
     out=Path('artifacts');out.mkdir(exist_ok=True)
     (out/'b8-003-cloud-acceptance.json').write_text(json.dumps(data,indent=2,sort_keys=True)+'\n',encoding='utf8')
-    assert data['total_synthetic_cases']==300 and data['effect_receipts']==200
+    if not (data['total_synthetic_cases']==300 and data['effect_receipts']==200): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_13")
     print('CLOUD_B8_003_ACCEPTANCE_PASS 300/300',data['proof_sha256'])
