@@ -45,8 +45,9 @@ class ShadowJournal:
     """Fences the filesystem effect while holding a SQLite write transaction.
 
     In case of process death after os.replace and before DB commit, SQLite
-    rolls back PREPARED->APPLIED, and recover() restores a durable saved base.
-    No guarantee is claimed for hardware power loss / multi-host coordination.
+    rolls back PREPARED->APPLIED, and recover() conditionally restores a saved
+    base if no untracked writes are observed. Only cooperative clients using
+    the same SQLite gate are serialized; no hostile-writer or hardware guarantee.
     """
     def __init__(self, root: Path):
         root = Path(root).resolve()
@@ -59,6 +60,7 @@ class ShadowJournal:
         self.root = root
         self.file = root / TARGET
         self.db = root / "journal.sqlite3"
+        self._database_is_local()
         with self.connect() as connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS tasks("
@@ -68,7 +70,12 @@ class ShadowJournal:
                 "lease_until REAL NOT NULL)"
             )
 
+    def _database_is_local(self) -> None:
+        if self.db.is_symlink() or self.db.resolve().parent != self.root:
+            raise ValueError("NON_SHADOW_JOURNAL_DENIED")
+
     def connect(self) -> sqlite3.Connection:
+        self._database_is_local()
         return sqlite3.connect(str(self.db), timeout=6, isolation_level=None)
 
     def _file_is_local(self) -> None:
@@ -77,8 +84,7 @@ class ShadowJournal:
         if not self.file.is_file():
             raise ValueError("SHADOW_TARGET_MISSING")
 
-    def prepare(self, job_id: str, proposed: bytes, review: dict,
-                now: float | None = None) -> int:
+    def prepare(self, job_id: str, proposed: bytes, review: dict) -> int:
         self._file_is_local()
         if type(job_id) is not str or not re.fullmatch(
                 r"synthetic-[A-Za-z0-9_-]{3,48}", job_id):
@@ -99,13 +105,17 @@ class ShadowJournal:
                 review["decision"] != "SHADOW_TEST_ONLY" or
                 review["owner_release_authorized"] is not False):
             raise ValueError("SHADOW_REVIEW_NOT_BOUND")
-        t = time.time() if now is None else now
-        if type(t) not in (float, int) or not 0 < t < 1e12:
-            raise ValueError("INVALID_CLOCK")
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")
             if c.execute("SELECT id FROM tasks WHERE id=?", (job_id,)).fetchone():
                 raise ValueError("JOB_REPLAY_DENIED")
+            if c.execute("SELECT id FROM tasks WHERE state IN ('PREPARED','APPLIED')"
+                         " LIMIT 1").fetchone():
+                raise ValueError("SHADOW_TARGET_BUSY_RECOVER_FIRST")
+            if digest(self.file.read_bytes()) != digest(before):
+                raise ValueError("SHADOW_BASE_CHANGED_DURING_PREPARE")
+            # Lease epoch and time are created under the SQLite writer lock.
+            t = time.time()
             c.execute(
                 "INSERT INTO tasks VALUES (?,?,?,?,?,?,?)",
                 (job_id, 1, "PREPARED", digest(before),
@@ -114,15 +124,16 @@ class ShadowJournal:
         return 1
 
     def apply(self, job_id: str, epoch: int, proposed: bytes,
-              crash_after_write: bool = False, now: float | None = None) -> str:
+              crash_after_write: bool = False) -> str:
         self._file_is_local()
         if type(epoch) is not int:
             raise ValueError("EPOCH_TYPE_DENIED")
         if type(proposed) is not bytes:
             raise ValueError("CANDIDATE_TYPE_DENIED")
-        t = time.time() if now is None else now
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")
+            # Never accept a caller-supplied clock; check AFTER acquiring lock.
+            t = time.time()
             row = c.execute(
                 "SELECT epoch,state,before_sha,after_sha,lease_until"
                 " FROM tasks WHERE id=?", (job_id,)
@@ -140,7 +151,7 @@ class ShadowJournal:
         return digest(proposed)
 
     def recover(self, job_id: str) -> str:
-        """Always restores the exact journalled previous state, even after a crash."""
+        """Restore saved bytes only if the effect is still known and uncontested."""
         self._file_is_local()
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")
@@ -172,7 +183,9 @@ def create_disposable_shadow(root: Path) -> ShadowJournal:
     root = Path(root)
     if not root.name.startswith("aiko-b8-shadow-"):
         raise ValueError("DISPOSABLE_SHADOW_ROOT_REQUIRED")
-    root.mkdir(parents=True, exist_ok=False)
+    root.mkdir(parents=True, exist_ok=False, mode=0o700)
+    if os.name == "posix" and root.stat().st_mode & 0o077:
+        raise ValueError("SHADOW_ROOT_PERMISSIONS_DENIED")
     (root / ".aiko_shadow_only").write_text(MARKER, encoding="ascii")
     (root / TARGET).write_bytes(b"growth=original-synthetic\n")
     return ShadowJournal(root)
