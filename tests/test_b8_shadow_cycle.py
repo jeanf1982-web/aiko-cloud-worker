@@ -117,9 +117,49 @@ class ShadowCycleTests(unittest.TestCase):
 
     def test_reject_expired_lease(self):
         self.prepare()
+        with self.j.connect() as c:
+            c.execute("UPDATE tasks SET lease_until=0 WHERE id=?", (self.job,))
         with self.assertRaisesRegex(ValueError, "STALE_OR_UNPREPARED"):
-            self.j.apply(self.job, 1, self.after, now=time.time() + 50)
+            self.j.apply(self.job, 1, self.after)
         self.assertEqual(self.j.file.read_bytes(), self.before)
+
+    def test_reject_callers_control_of_clock(self):
+        self.prepare()
+        with self.assertRaises(TypeError):
+            self.j.apply(self.job, 1, self.after, now=float("nan"))
+        self.assertEqual(self.j.file.read_bytes(), self.before)
+
+    def test_only_one_active_shadow_effect(self):
+        self.prepare()
+        other = self.review()
+        other["job_id"] = "synthetic-case-002"
+        with self.assertRaisesRegex(ValueError, "SHADOW_TARGET_BUSY_RECOVER_FIRST"):
+            self.j.prepare(other["job_id"], self.after, other)
+        self.assertEqual(self.j.file.read_bytes(), self.before)
+
+    def test_second_effect_after_verified_rollback(self):
+        self.prepare()
+        self.j.apply(self.job, 1, self.after)
+        self.j.recover(self.job)
+        other = self.review()
+        other["job_id"] = "synthetic-case-002"
+        self.assertEqual(self.j.prepare(other["job_id"], self.after, other), 1)
+        self.assertEqual(self.j.apply(other["job_id"], 1, self.after), digest(self.after))
+        self.assertEqual(self.j.recover(other["job_id"]), digest(self.before))
+
+    def test_reject_sqlite_symlink_to_external_database(self):
+        external = Path(self.tmp.name) / "external-synthetic.sqlite3"
+        original = self.root / "journal.sqlite3"
+        external.write_bytes(original.read_bytes())
+        external_before = digest(external.read_bytes())
+        original.unlink()
+        try:
+            original.symlink_to(external)
+        except OSError:
+            self.skipTest("symlink creation disallowed")
+        with self.assertRaisesRegex(ValueError, "NON_SHADOW_JOURNAL_DENIED"):
+            ShadowJournal(self.root)
+        self.assertEqual(digest(external.read_bytes()), external_before)
 
     def test_reject_candidate_change_after_review(self):
         self.prepare()
