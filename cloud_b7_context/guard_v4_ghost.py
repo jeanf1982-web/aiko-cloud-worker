@@ -31,6 +31,8 @@ def guarded_preprocess(user_text,context,downstream,requires_recent_context=Fals
     if type(context) is not dict or not callable(downstream):raise ContextRejected("INVALID_CONTEXT_OR_PIPELINE")
     if requires_recent_context and MARKER in user_text:raise ContextRejected("FORGED_MARKER_IN_USER_INPUT")
     out=_text(downstream(user_text,context),"AFTER")
+    if not requires_recent_context and MARKER in out and MARKER not in user_text:
+        raise ContextRejected("UNEXPECTED_RECENT_CONTEXT_FROM_DOWNSTREAM")
     if ("\r" in user_text or "\n" in user_text) and user_text not in out:
         raise ContextRejected("ORIGINAL_MULTILINE_TEXT_NOT_PRESERVED")
     tokens=re.findall(r"\r\n|\r|\n",user_text)
