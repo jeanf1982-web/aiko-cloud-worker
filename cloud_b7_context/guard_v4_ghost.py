@@ -20,7 +20,7 @@ def _history_suffix(context):
         if value is None or value=="":return ""
         if type(value) is not str:
             raise ContextRejected("HISTORY_FIELD_NOT_STRING")
-        if MARKER in value or any(ch in value for ch in ("\r","\n","\u2028","\u2029","\u0085","\x00")):
+        if MARKER in value or any(ch in value for ch in ("\r","\n","\x0b","\x0c","\x1c","\x1d","\x1e","\u2028","\u2029","\u0085","\x00")):
             raise ContextRejected("HISTORY_FIELD_AMBIGUOUS_DELIMITER")
         return value.strip()[:limit]
     for item in entries[-4:]:
