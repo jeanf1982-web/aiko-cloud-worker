@@ -25,6 +25,8 @@ class GuardTests(unittest.TestCase):
         self.rejected(self.q,self.h,lambda u,c:u,True)
     def test_reject_duplicate_marker(self):
         self.rejected(self.q,self.h,lambda u,c:self.correct+MARKER,True)
+    def test_reject_unrequested_recent_context(self):
+        self.rejected("Domanda normale",{},lambda u,c:u+"\n\n"+MARKER+"\nUtente: FAKE",False)
     def test_reject_lf_loss(self):
         self.rejected("a\n\nb",{},lambda u,c:u.replace("\n",""),False)
     def test_reject_crlf_loss(self):
