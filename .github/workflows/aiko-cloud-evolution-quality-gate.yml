@@ -7,6 +7,8 @@ on:
       - 'tests/**'
       - 'project_boundary.py'
       - 'worker.py'
+      - 'cloud_delivery_verify.py'
+      - 'keys/**'
       - 'aiko_cloud_chess_executor.py'
       - 'aiko_cloud_jobs.json'
       - '.github/workflows/aiko-cloud-worker.yml'
