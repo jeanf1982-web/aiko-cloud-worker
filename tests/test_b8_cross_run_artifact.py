@@ -1,5 +1,6 @@
 """No network, no credentials: contract tests for cross-run B8 synthetic evidence."""
 import hashlib, io, json, unittest, zipfile, time
+import ast, pathlib, subprocess, sys, tempfile
 import urllib.error
 from unittest.mock import patch
 from datetime import datetime, timezone, timedelta
@@ -132,6 +133,23 @@ class CrossRunTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"SECOND_ARTIFACT_REDIRECT_DENIED"):
                 get_artifact_zip(123,"synthetic-readonly-token")
         self.assertEqual(fake.calls,2)
+    def test_b8_producers_do_not_depend_on_optimized_asserts(self):
+        root=pathlib.Path(__file__).resolve().parents[1]
+        for name in ("acceptance.py","real_process_crash.py"):
+            path=root/"cloud_b8_003"/name
+            tree=ast.parse(path.read_text(encoding="utf-8"))
+            self.assertFalse(any(isinstance(node,ast.Assert) for node in ast.walk(tree)),name)
+    def test_optimized_python_executes_300_case_producer(self):
+        root=pathlib.Path(__file__).resolve().parents[1]
+        script=root/"cloud_b8_003"/"acceptance.py"
+        with tempfile.TemporaryDirectory(prefix="aiko_b8_optimized_") as temp:
+            proc=subprocess.run([sys.executable,"-O",str(script)],
+                cwd=temp,capture_output=True,text=True,timeout=35)
+            self.assertEqual(proc.returncode,0,proc.stderr[-750:])
+            receipt=json.loads((pathlib.Path(temp)/"artifacts"/
+                "b8-003-cloud-acceptance.json").read_text(encoding="utf8"))
+            self.assertEqual(receipt["total_synthetic_cases"],300)
+            self.assertEqual(receipt["effect_receipts"],200)
     def test_reject_archive_traversal(self):
         raw=self.pack("../"+FILENAME)
         with self.assertRaises(ValueError):verify_archive(raw,self.meta)
