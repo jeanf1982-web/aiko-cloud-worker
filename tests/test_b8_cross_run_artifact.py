@@ -1,10 +1,12 @@
 """No network, no credentials: contract tests for cross-run B8 synthetic evidence."""
-import hashlib, io, json, unittest, zipfile
+import hashlib, io, json, unittest, zipfile, time
+from datetime import datetime, timezone, timedelta
 from cloud_b8_003.cross_run_artifact import verify_artifact_meta, verify_archive, REPO, REPO_ID, ARTIFACT, FILENAME
 
 class CrossRunTests(unittest.TestCase):
     def setUp(self):
         self.meta={"name":ARTIFACT,"expired":False,"digest":"",
+           "created_at":datetime.now(timezone.utc).isoformat(),
            "workflow_run":{"id":501,"repository_id":REPO_ID,
              "head_repository_id":REPO_ID,"head_sha":"a"*40}}
         self.receipt={"schema":"AIKO_B8_003_REAL_PROCESS_CRASH_QA_V1","repository":REPO,
@@ -29,6 +31,29 @@ class CrossRunTests(unittest.TestCase):
         self.assertFalse(verify_artifact_meta(self.meta,"502"))
     def test_reject_expired(self):
         self.pack();self.meta["expired"]=True
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_stale_cross_run_artifact(self):
+        self.pack()
+        self.meta["created_at"]=(datetime.now(timezone.utc)-timedelta(days=3)).isoformat()
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_future_cross_run_artifact(self):
+        self.pack()
+        self.meta["created_at"]=(datetime.now(timezone.utc)+timedelta(minutes=15)).isoformat()
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_nonhex_commit_sha(self):
+        self.pack();self.meta["workflow_run"]["head_sha"]="z"*40
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_nonhex_artifact_digest(self):
+        self.pack();self.meta["digest"]="sha256:"+"x"*64
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_forged_boolean_run_id(self):
+        self.pack();self.meta["workflow_run"]["id"]=True
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_non_utc_metadata(self):
+        self.pack();self.meta["created_at"]="2026-10-29T00:00:00"
+        self.assertFalse(verify_artifact_meta(self.meta,"502"))
+    def test_reject_missing_artifact_timestamp(self):
+        self.pack();del self.meta["created_at"]
         self.assertFalse(verify_artifact_meta(self.meta,"502"))
     def test_reject_forged_digest(self):
         raw=self.pack();self.meta["digest"]="sha256:"+"0"*64
