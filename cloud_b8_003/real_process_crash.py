@@ -54,9 +54,9 @@ def verify_100_actual_process_crashes() -> dict:
                 worker.kill()
                 worker.join(timeout=2)
                 raise AssertionError("CHILD_NOT_TERMINATED")
-            assert worker.exitcode == 17, (i, worker.exitcode)
+            if not (worker.exitcode == 17): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_1, process_exit")
             stats["child_process_crashes"] += 1
-            assert sha(artifact.read_bytes()) == sha(candidate)
+            if not (sha(artifact.read_bytes()) == sha(candidate)): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_2")
             original_write_time = artifact.stat().st_mtime_ns
 
             # Advance a stale lease only inside the disposable test journal.
@@ -65,21 +65,21 @@ def verify_100_actual_process_crashes() -> dict:
                 connection.execute("UPDATE jobs SET lease_until=0 WHERE id=?", (key,))
             recovered = Queue(Path(ledger.db))
             new_epoch = recovered.claim(key)
-            assert new_epoch == 2, (i, new_epoch)
+            if not (new_epoch == 2, (i, new_epoch)): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_3")
             stats["reclaims"] += 1
-            assert not recovered.commit(key, 1, sha(candidate))
+            if not (not recovered.commit(key, 1, sha(candidate))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_4")
             stats["stale_epoch_rejections"] += 1
 
             # File hash tells a recovering worker the intended data is already
             # present: avoid rewriting it after a crash-before-commit.
             if sha(artifact.read_bytes()) != sha(candidate):
                 atomic_write(artifact, candidate)
-            assert artifact.stat().st_mtime_ns == original_write_time
-            assert recovered.commit(key, new_epoch, sha(candidate))
-            assert recovered.row(key) == ("DONE", 2, sha(candidate))
+            if not (artifact.stat().st_mtime_ns == original_write_time): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_5")
+            if not (recovered.commit(key, new_epoch, sha(candidate))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_6")
+            if not (recovered.row(key) == ("DONE", 2, sha(candidate))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_7")
             stats["no_duplicate_file_write"] += 1
 
-        assert ledger.unique_effects() == 100
+        if not (ledger.unique_effects() == 100): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_8")
         stats["unique_effect_receipts"] = 100
         return {
             "schema": "AIKO_B8_003_REAL_PROCESS_CRASH_QA_V1",
