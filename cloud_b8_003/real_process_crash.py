@@ -65,7 +65,7 @@ def verify_100_actual_process_crashes() -> dict:
                 connection.execute("UPDATE jobs SET lease_until=0 WHERE id=?", (key,))
             recovered = Queue(Path(ledger.db))
             new_epoch = recovered.claim(key)
-            if not (new_epoch == 2, (i, new_epoch)): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_3")
+            if new_epoch != 2: raise AssertionError("AIKO_B8_RECOVERY_EPOCH_INVALID")
             stats["reclaims"] += 1
             if not (not recovered.commit(key, 1, sha(candidate))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_4")
             stats["stale_epoch_rejections"] += 1
