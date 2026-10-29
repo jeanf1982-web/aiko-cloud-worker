@@ -3,21 +3,40 @@
 This proves one GitHub runner can retrieve/verify a PREVIOUS run's durable synthetic
 receipt without ACER. It DOES NOT prove a real Growth release or physical ACER-off.
 """
-import hashlib, io, json, os, pathlib, sys, urllib.error, urllib.parse, urllib.request, zipfile
+import hashlib, io, json, os, pathlib, re, sys, time, urllib.error, urllib.parse, urllib.request, zipfile
+from datetime import datetime, timezone
 REPO="jeanf1982-web/aiko-cloud-worker"
 REPO_ID=1408649300
 ARTIFACT="aiko-b8-003-isolated-recovery-proof"
 FILENAME="b8-003-real-process-crash-proof.json"
 API="https://api.github.com/repos/"+REPO+"/actions/artifacts?per_page=100"
+MAX_ARTIFACT_AGE_S=48*3600
 
-def verify_artifact_meta(meta,current_run):
+def _fresh_utc_stamp(iso,now=None):
+    if not isinstance(iso,str):return False
+    try:
+        dt=datetime.fromisoformat(iso.replace("Z","+00:00"))
+        if dt.tzinfo is None:return False
+        age=(time.time() if now is None else now)-dt.timestamp()
+        return 0<=age<=MAX_ARTIFACT_AGE_S
+    except (ValueError,OverflowError,TypeError):
+        return False
+
+def verify_artifact_meta(meta,current_run,now=None):
+    if not isinstance(meta,dict):return False
     src=meta.get("workflow_run") or {}
+    if not isinstance(src,dict):return False
+    run_id=src.get("id")
     return (
         meta.get("name")==ARTIFACT and meta.get("expired") is False
         and src.get("repository_id")==REPO_ID and src.get("head_repository_id")==REPO_ID
-        and str(src.get("id") or "")!=str(current_run)
-        and isinstance(src.get("head_sha"),str) and len(src["head_sha"])==40
-        and isinstance(meta.get("digest"),str) and meta["digest"].startswith("sha256:")
+        and type(run_id) is int and run_id>0
+        and isinstance(current_run,str) and current_run.isdecimal() and str(run_id)!=current_run
+        and isinstance(src.get("head_sha"),str)
+        and re.fullmatch(r"[0-9a-fA-F]{40}",src["head_sha"]) is not None
+        and isinstance(meta.get("digest"),str)
+        and re.fullmatch(r"sha256:[0-9a-fA-F]{64}",meta["digest"]) is not None
+        and _fresh_utc_stamp(meta.get("created_at"),now)
     )
 
 def verify_archive(raw,meta):
@@ -94,7 +113,7 @@ def main():
     proof=verify_archive(get_artifact_zip(accepted[0]["id"],token),accepted[0])
     proof.update(schema="AIKO_B8_CROSS_RUN_ARTIFACT_EVIDENCE_V1",
         current_run_id=int(nowrun),artifact_id=accepted[0]["id"],
-        acer_physical_off_verified=False if False else False,
+        acer_physical_off_verified=False,
         full_growth_delivery_certified=False,release_authorized=False,
         production_writes=0)
     pathlib.Path("artifacts").mkdir(exist_ok=True)
