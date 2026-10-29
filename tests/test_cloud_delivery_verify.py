@@ -97,6 +97,34 @@ class SignedDeliveryProofTests(unittest.TestCase):
                 self.assertTrue(proof["result_recomputed"])
                 self.assertFalse(proof["B8_global_certified"])
 
+    def test_manifest_expiry_matches_worker_policy(self):
+        case, env = self.signed_worker("sha256", b"public synthetic expiry",
+                                       "proofexpirynegative")
+        future = dict(env)
+        future["AIKO_EXPIRES_AT"] = str(int(time.time()) + 7200)
+        with self.assertRaisesRegex(ValueError, "MANIFEST_EXPIRY_OUT_OF_RANGE"):
+            verify(case, future, self.pub)
+
+    def test_result_clock_must_be_finite_and_monotonic(self):
+        case, env = self.signed_worker("sha256", b"public synthetic timing",
+                                       "prooftimingnegative")
+        raw = (case / "result.json").read_bytes()
+        original_att = (case / "attestation.json").read_text(encoding="utf-8")
+        for started, finished in ((10, 9), (0, 1300), (float("nan"), 100),
+                                  (time.time() + 120, time.time() + 130)):
+            with self.subTest(started=started, finished=finished):
+                result = json.loads(raw)
+                result["started_at"] = started
+                result["finished_at"] = finished
+                altered = json.dumps(result, sort_keys=True).encode()
+                (case / "result.json").write_bytes(altered)
+                attestation = json.loads(original_att)
+                attestation["result_sha256"] = hashlib.sha256(altered).hexdigest()
+                (case / "attestation.json").write_text(
+                    json.dumps(attestation), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "RESULT_TIME_INVALID|RESULT_TIMING_INVALID"):
+                    verify(case, env, self.pub)
+
     def test_100_mutated_receipts_are_rejected(self):
         case, env = self.signed_worker("sha256", b"truthful signed result",
                                        "proofmutationbaseline")
