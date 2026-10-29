@@ -69,7 +69,8 @@ def run_300_cases():
         delivery=0; recovery=0; rollback=0
         for idx in range(100):
             key=f'delivery-{idx:03}';dest=home/f'{key}.txt';dest.write_bytes(before)
-            jobs.put(key);token=jobs.claim(key);assert token == 1
+            jobs.put(key);token=jobs.claim(key)
+            if token != 1: raise AssertionError('B8_CLAIM_EPOCH_INVALID')
             atomic_write(dest,after)
             if not (sha(dest.read_bytes())==sha(after)): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_1")
             if not (jobs.commit(key,token,sha(after))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_2")
@@ -79,11 +80,13 @@ def run_300_cases():
         if not (jobs.unique_effects()==100): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_5")
         for idx in range(100):
             key=f'recovery-{idx:03}';dest=home/f'{key}.txt';dest.write_bytes(before)
-            jobs.put(key);old=jobs.claim(key);assert old==1
+            jobs.put(key);old=jobs.claim(key)
+            if old != 1: raise AssertionError('B8_OLD_EPOCH_INVALID')
             # Simulated crash leaves journal claim; expire the lease in test DB only.
             with jobs.connect() as c:
                 c.execute('UPDATE jobs SET lease_until=0 WHERE id=?',(key,))
-            newer=Queue(db);current=newer.claim(key);assert current==2
+            newer=Queue(db);current=newer.claim(key)
+            if current != 2: raise AssertionError('B8_RECOVERY_EPOCH_INVALID')
             if not (not newer.commit(key,old,sha(after))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_6")
             atomic_write(dest,after)
             if not (newer.commit(key,current,sha(dest.read_bytes()))): raise AssertionError("AIKO_B8_EVIDENCE_CHECK_7")
